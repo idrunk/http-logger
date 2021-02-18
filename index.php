@@ -1,14 +1,19 @@
 <?php
-$protocolHost = sprintf('%s://%s', strtolower($_SERVER['HTTPS']) === 'on' ? 'https' : 'http', $_SERVER['HTTP_HOST']);
+$requestSchema = isset($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] : (strtolower($_SERVER['HTTPS']) === 'on' ? 'https' : 'http');
+$protocolHost = sprintf('%s://%s', $requestSchema, $_SERVER['HTTP_HOST']);
 $requestUri = preg_replace('#/(?=/|$)#ui', '', $_SERVER['REQUEST_URI']);
 if ('/favicon.ico' === $requestUri) {
     die;
 } else if ('' === $requestUri) {
-    echo '<!doctype html><html><head><meta charset="UTF-8"><title>HTTP记录器</title></head><body><pre>';
+    echo '<!doctype html><html lang="zh"><head><meta charset="UTF-8"><title>HTTP记录器</title></head><body><pre>';
     ob_start();
     require_once('README.md');
     echo str_ireplace('http://logger.drunkce.com', $protocolHost, ob_get_clean());
     die('<pre><body></html>');
+} else if ('/webhook.php' === $requestUri) {
+    // hack github webhook
+    require_once './webhook.php';
+    die;
 }
 
 ini_set('post_max_size', '100K');
@@ -47,7 +52,7 @@ if ('POST' === $requestMethod) {
     if ($isDebugStorage) {
         $postData = file_get_contents('php://input');
     } else {
-        $postData = empty($_POST) ? null : var_export($_POST, 1);
+        $postData = empty($_POST) ? file_get_contents('php://input') : var_export($_POST, 1);
         $postData = "Post Data:\n{$postData}\n\n";
     }
     $isPost = true;

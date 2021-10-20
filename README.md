@@ -6,7 +6,7 @@ Http记录器, 主用于异步编程时, 调试记录回调接口, 方便根据�
 
 ### GET方式
 
-发送GET请求记录时，若请求路径记录文件已存在，则会被新的记录替换
+同POST方式，但仅捕获打印url参数
 
 ```sh
 curl http://logger.drunkce.com/path/childpath?query_key=key
@@ -14,23 +14,26 @@ curl http://logger.drunkce.com/path/childpath?query_key=key
 
 ### POST方式
 
-发送POST请求记录时，若请求路径记录文件已存在，新的记录会追加到已存在文件的尾部
-
-- 常规POST
+- 常规POST，将捕获记录POST内容及记录时间与$_SERVER变量中请求端的相关信息
 ```sh
 curl -X POST -d "key1=1&key2=2" http://logger.drunkce.com/path/childpath
 ```
-- Dce Debug Post (追加记录且不自动拼装记录时间及$_SERVER变量等数据)
+- Dce debug POST，仅捕获记录POST内容，不自动拼装记录时间及$_SERVER变量数据
 ```sh
 curl -X POST -H "Dce-Debug:1" -d $'key1=1\nkey2=2' http://logger.drunkce.com/path/childpath
 ```
 
-### PUT方式
-
-发送PUT请求记录时，若请求路径记录文件已存在，则会被新的记录替换
-
+- 尾部追加模式（默认）
 ```sh
-curl -X PUT -H "Dce-Debug:1" -d $'key1=1\nkey2=2' http://logger.drunkce.com/path/childpath
+curl -X POST -H "Dce-Debug:1" -H "Log-Type:append" -d $'key1=1\nkey2=2' http://logger.drunkce.com/path/childpath
+```
+- 头部追加模式
+```sh
+curl -X POST -H "Dce-Debug:1" -H "Log-Type:prepend" -d $'key1=1\nkey2=2' http://logger.drunkce.com/path/childpath
+```
+- 替换模式，每次新请求会自动清空原内容并写入当前POST内容
+```sh
+curl -X POST -H "Dce-Debug:1" -H "Log-Type:replace" -d $'key1=1\nkey2=2' http://logger.drunkce.com/path/childpath
 ```
 
 ### DELETE方式

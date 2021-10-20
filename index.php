@@ -10,7 +10,7 @@ if ('/favicon.ico' === $requestUri) {
     require_once('README.md');
     echo str_ireplace('http://logger.drunkce.com', $protocolHost, ob_get_clean());
     die('<pre><body></html>');
-} else if ('/webhook.php' === $requestUri) {
+} else if (fnmatch('/webhook.php*', $requestUri)) {
     // hack github webhook
     require_once './webhook.php';
     die;
@@ -32,7 +32,7 @@ if ('/_/' === $prefix) {
         die(file_get_contents($logFilePath));
     } else {
         header('HTTP/1.1 404 Not Found');
-        die("File '{$logFilePath}' Not Found");
+        die("File '{$queryPath}' Not Found");
     }
 }
 
@@ -45,44 +45,40 @@ if (! file_exists($fileDir = dirname($filePath))) {
     die(sprintf('无法在 %s 文件下创建子元素, 或无法将 %s 目录创建为文件', dirname($queryPath), $queryPath));
 }
 $isDebugStorage = isset($_SERVER['HTTP_DCE_DEBUG']);
-$isPost = $isDelete = false;
+$logType = isset($_SERVER['HTTP_LOG_TYPE']) ? $_SERVER['HTTP_LOG_TYPE'] : 'append';
 $requestMethod = strtoupper($_SERVER['REQUEST_METHOD']);
 
-if ('POST' === $requestMethod) {
-    if ($isDebugStorage) {
-        $postData = file_get_contents('php://input');
-    } else {
-        $postData = empty($_POST) ? file_get_contents('php://input') : var_export($_POST, 1);
-        $postData = "Post Data:\n{$postData}\n\n";
-    }
-    $isPost = true;
-} else if ('PUT' === $requestMethod) {
-    $postData = file_get_contents('php://input');
-    $postData = "Put Data:\n{$postData}\n\n";
-} else if ('DELETE' === $requestMethod) {
+if ('DELETE' === $requestMethod) {
     if (file_exists($filePath)) {
         unlink($filePath);
     }
     die;
-} else {
+} else if ('GET' === $requestMethod) {
     $postData = empty($_SERVER['QUERY_STRING']) ? '' : "Query String:\n{$_SERVER['QUERY_STRING']}\n\n";
-    $isDelete = true;
+} else if ($isDebugStorage) {
+    $postData = file_get_contents('php://input');
+} else {
+    $postData = empty($_POST) ? file_get_contents('php://input') : var_export($_POST, 1);
+    $postData = "Post Data:\n{$postData}\n\n";
 }
 
-if ($isDebugStorage && $isPost) {
-    $log = $postData;
-} else {
+$log = $postData;
+if (! $isDebugStorage) {
     $queryPath = "{$requestMethod} {$queryPath}";
     $serverData = var_export(array_filter($_SERVER, function($k) {
         return preg_match('/^(?:http|request|query|remote)/ui', $k);
     }, ARRAY_FILTER_USE_KEY), 1);
-    $log = "{$queryPath}; {$time}\n\n{$postData}{$serverData}\n\n\n";
+    $log = "{$queryPath}; {$time}\n\n{$log}{$serverData}\n\n\n";
 }
 
 $fileDir = pathinfo($filePath, PATHINFO_DIRNAME);
 if (! file_exists($fileDir)) {
     mkdir($fileDir, 0777, 1);
 }
-file_put_contents($filePath, $log, $isPost ? FILE_APPEND : 0);
+if ($logType === 'prepend') {
+    $content = file_get_contents($filePath);
+    $log .= false === $content ? '' : $content;
+}
+file_put_contents($filePath, $log, $logType === 'append' ? FILE_APPEND : 0);
 
 echo $viewPath;

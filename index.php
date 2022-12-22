@@ -32,12 +32,12 @@ if ('/_/' === $prefix) {
         die(file_get_contents($logFilePath));
     } else {
         header('HTTP/1.1 404 Not Found');
-        die("File '{$queryPath}' Not Found");
+        die("File '$queryPath' Not Found");
     }
 }
 
-$filePath = __DIR__ . "/_{$queryPath}";
-$viewPath = $protocolHost . "/_{$queryPath}";
+$filePath = __DIR__ . "/_$queryPath";
+$viewPath = $protocolHost . "/_$queryPath";
 if (! file_exists($fileDir = dirname($filePath))) {
     mkdir($fileDir, 0766, true);
 } else if (is_dir($filePath) || is_file($fileDir)) {
@@ -54,21 +54,21 @@ if ('DELETE' === $requestMethod) {
     }
     die;
 } else if ('GET' === $requestMethod) {
-    $postData = empty($_SERVER['QUERY_STRING']) ? '' : "Query String:\n{$_SERVER['QUERY_STRING']}\n\n";
+    $postData = empty($_SERVER['QUERY_STRING']) ? '' : "Query String:\n{$_SERVER['QUERY_STRING']}\n";
 } else if ($isDebugStorage) {
     $postData = file_get_contents('php://input');
 } else {
     $postData = empty($_POST) ? file_get_contents('php://input') : var_export($_POST, 1);
-    $postData = "Post Data:\n{$postData}\n\n";
+    $postData = ($postData === '' ? '' : "Post Data:\n$postData") . "\n";
 }
 
 $log = $postData;
 if (! $isDebugStorage) {
-    $queryPath = "{$requestMethod} {$queryPath}";
-    $serverData = var_export(array_filter($_SERVER, function($k) {
+    $queryPath = "$requestMethod $queryPath";
+    $requestInfo = var_export(array_merge(['REQUEST_SUMMARY' => "$queryPath; $time"], array_filter($_SERVER, function($k) {
         return preg_match('/^(?:http|request|query|remote)/ui', $k);
-    }, ARRAY_FILTER_USE_KEY), 1);
-    $log = "{$queryPath}; {$time}\n\n{$log}{$serverData}\n\n\n";
+    }, ARRAY_FILTER_USE_KEY)), 1);
+    $log = "Request Info: $requestInfo\n$log\n\n";
 }
 
 $fileDir = pathinfo($filePath, PATHINFO_DIRNAME);
@@ -76,7 +76,7 @@ if (! file_exists($fileDir)) {
     mkdir($fileDir, 0777, 1);
 }
 if ($logType === 'prepend') {
-    $content = file_get_contents($filePath);
+    $content = @file_get_contents($filePath);
     $log .= false === $content ? '' : $content;
 }
 file_put_contents($filePath, $log, $logType === 'append' ? FILE_APPEND : 0);
